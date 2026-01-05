@@ -14,11 +14,16 @@ app.use(express.json());
 app.set('trust proxy', true);
 app.use(logger);
 
+// routes
+const careerPathsRoutes = require('./routes/routesCareerPaths');
 
 // Health Check
 app.get('/', (req, res) => {
   res.json({ message: 'GivethNotes API is running 🚀' });
 });
+
+// Career Routes Paths
+app.use('/api', careerPathsRoutes);
 
 // 404 Middleware
 app.use(notFound);
