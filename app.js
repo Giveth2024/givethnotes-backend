@@ -11,7 +11,9 @@ const errorHandler = require('./middleware/error');
 const notFound = require('./middleware/notfound');
 app.use(cors());
 app.use(express.json());
-app.use(logger)
+app.set('trust proxy', true);
+app.use(logger);
+
 
 // Health Check
 app.get('/', (req, res) => {
