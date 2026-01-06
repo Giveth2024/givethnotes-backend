@@ -1,10 +1,13 @@
 # GivethNotes Backend
 
-GivethNotes Backend is a RESTful API built with Node.js and Express, designed to manage career paths for the GivethNotes platform. It uses MySQL for data storage and includes features such as logging, error handling, and CORS support.
+GivethNotes Backend is a RESTful API built with Node.js and Express, designed to manage career paths, journal entries, and entry blocks for the GivethNotes platform. It uses MySQL for data storage and includes features such as logging, error handling, and CORS support.
 
 ## Features
 
-- **Career Path Management**: CRUD operations for career paths.
+- **Career Path Management**: Create, read, update, and delete career paths.
+- **Journal Entries**: Manage dated journal entries associated with specific career paths.
+- **Entry Blocks**: Rich content blocks within journal entries, supporting various types like headings, notes, points, and more.
+- **Reordering Logic**: Automatic position shifting when entry blocks are deleted.
 - **Middleware**: Built-in logging, error handling, and 404 (Not Found) handling.
 - **Database**: Integrated with MySQL using `mysql2` with connection pooling.
 - **Environment Driven**: Configuration managed via environment variables.
@@ -73,6 +76,21 @@ The server will be running on `http://localhost:5000` (or your configured `PORT`
 - `POST /api/career-paths`: Create a new career path.
 - `PUT /api/career-paths/:id`: Update an existing career path.
 - `DELETE /api/career-paths/:id`: Delete a career path.
+
+### Journal Entries
+- `GET /api/journal-entries?career_path_id=:id`: Fetch all journal entries for a specific career path.
+- `GET /api/journal-entries/:id`: Fetch a specific journal entry by ID.
+- `POST /api/journal-entries`: Create a new journal entry.
+- `PUT /api/journal-entries/:id`: Update a journal entry's date.
+- `DELETE /api/journal-entries/:id`: Delete a journal entry.
+
+### Entry Blocks
+- `GET /api/entry-blocks?entry_id=:id`: Fetch all blocks for a specific journal entry, ordered by position.
+- `POST /api/entry-blocks`: Create a new content block.
+- `PUT /api/entry-blocks`: Update content of a block (requires `entry_id` and `position`).
+- `DELETE /api/entry-blocks`: Delete a block (requires `entry_id` and `position`). Automatically shifts subsequent blocks.
+
+**Supported Block Types**: `heading`, `notes`, `points`, `attachment`, `reference`.
 
 ## Project Structure
 
