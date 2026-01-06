@@ -17,6 +17,7 @@ app.use(logger);
 // routes
 const careerPathsRoutes = require('./routes/routesCareerPaths');
 const journalEntryRoutes = require('./routes/routesJournalEntry');
+const entryBlocksRoutes = require('./routes/routesEntryBlocks');
 
 // Health Check
 app.get('/', (req, res) => {
@@ -25,8 +26,12 @@ app.get('/', (req, res) => {
 
 // Career Routes Paths
 app.use('/api', careerPathsRoutes);
+
 // Journal Entry Routes Paths
 app.use('/api', journalEntryRoutes);
+
+// Entry Blocks Routes Paths
+app.use('/api', entryBlocksRoutes);
 
 // 404 Middleware
 app.use(notFound);
