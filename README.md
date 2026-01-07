@@ -105,8 +105,20 @@ givethnotes-backend/
 └── .env                # Environment variables (not committed)
 ```
 
-## Note on Authentication
-Currently, the API uses a hardcoded `user_id = 1` for all requests. Full authentication and authorization features are expected in future updates.
+## Additional Notes 🔧
+
+### Note on Authentication
+Currently, the API uses a hardcoded `user_id = 1` for all endpoints; full authentication and authorization are planned for future updates.
+
+### Database schema (expected tables)
+This project expects the following tables: `career_paths`, `journal_entries`, `entry_blocks`, and `logs`. The `logger` middleware writes request logs into the `logs` table and entry lifecycle operations update `journal_entries.updated_at`.
+
+### Logging & activity sync
+All requests are logged to console and to the `logs` DB table. When entry blocks are created, updated or deleted, the project synchronizes the parent journal entry's `updated_at` using `functions/LogActivity.js`.
+
+### Known issues / notes
+- There's a minor bug in `routes/entryBlocks` DELETE handler where an undefined variable (`created_at`) is referenced when logging activity; this should be updated to use a fresh GMT+3 timestamp or the appropriate updated timestamp.  
+- Block `content` values are stored as JSON strings in the DB; clients should serialize/deserialize this field when sending/receiving content.
 
 ## License
 [ISC](https://opensource.org/licenses/ISC)

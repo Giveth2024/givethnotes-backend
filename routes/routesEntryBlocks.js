@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
+const { logEntryActivities } = require('../functions/LogActivity');
 
 const ALLOWED_TYPES = [
   'heading',
@@ -44,6 +45,9 @@ router.post('/entry-blocks', (req, res) => {
         return res.status(500).json({ message: 'Failed to create entry block' });
       }
 
+      // PLACE HERE:
+      logEntryActivities(entry_id, created_at);
+
       res.status(201).json({
         id: result.insertId,
         entry_id,
@@ -62,6 +66,7 @@ router.post('/entry-blocks', (req, res) => {
 router.get('/entry-blocks', (req, res) => {
   const { entry_id } = req.query;
 
+  console.log('Fetching blocks for entry_id:', entry_id);
   if (!entry_id) {
     return res.status(400).json({ message: 'entry_id is required' });
   }
@@ -84,6 +89,8 @@ router.get('/entry-blocks', (req, res) => {
       ...row,
       content: row.content,
     }));
+
+    console.log(`✅ Fetched ${blocks.length} blocks for entry_id ${entry_id}`);
 
     res.json(blocks);
   });
@@ -122,6 +129,9 @@ router.put('/entry-blocks', (req, res) => {
       if (result.affectedRows === 0) {
         return res.status(404).json({ message: 'Block not found at that position' });
       }
+
+      // PLACE HERE:
+      logEntryActivities(entry_id, updated_at);
 
       res.json({
         entry_id,
@@ -171,6 +181,9 @@ router.delete('/entry-blocks', (req, res) => {
       if (err) {
         console.error('❌ Reorder error:', err.message);
       }
+
+    // PLACE HERE:
+    logEntryActivities(entry_id, created_at);
 
       res.json({ message: 'Block deleted and positions updated' });
     });

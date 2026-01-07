@@ -26,23 +26,29 @@ router.post('/journal-entries/', (req, res) => {
     VALUES (?, ?, ?, ?)
   `;
 
-  db.query(
-    sql,
-    [career_path_id, user_id, entry_date, created_at],
-    (err, result) => {
-      if (err) {
-        console.error('❌ Create journal entry error:', err.message);
-        return res.status(500).json({ message: 'Failed to create journal entry' });
-      }
+      db.query(
+        sql,
+        [career_path_id, user_id, entry_date, created_at],
+        (err, result) => {
+          if (err) {
+            // Check if the error is a duplicate entry (MySQL error code 1062)
+            if (err.errno === 1062 || err.code === 'ER_DUP_ENTRY') {
+              return res.status(400).json({ 
+                message: 'Entry date already exists for this career path' 
+              });
+            }
+            console.error('❌ Create journal entry error:', err.message);
+            return res.status(500).json({ message: 'Failed to create journal entry' });
+          }
 
-      res.status(201).json({
-        id: result.insertId,
-        career_path_id,
-        entry_date,
-        created_at,
-      });
-    }
-  );
+          res.status(201).json({
+            id: result.insertId,
+            career_path_id,
+            entry_date,
+            created_at,
+          });
+        }
+      );
 });
 
 /* ======================================================
