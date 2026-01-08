@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
+const { getUserIdFromRequest } = require('../functions/authUser');
 
 router.post('/career-paths', (req, res) => {
   const { title, description, image_url } = req.body;
@@ -50,31 +51,33 @@ router.post('/career-paths', (req, res) => {
 });
 
 // GET all career paths
-router.get('/career-paths', (req, res) => {
-  // TEMP: no auth yet
-  const user_id = 1;
-
-  const sql = `
-    SELECT 
-      id,
-      title,
-      description,
-      image_url,
-      created_at,
-      updated_at
-    FROM career_paths
-    WHERE user_id = ?
-    ORDER BY id DESC
-  `;
-
-  db.query(sql, [user_id], (err, results) => {
-    if (err) {
-      console.error('❌ Fetch career paths error:', err.message);
-      return res.status(500).json({ message: 'Failed to fetch career paths' });
-    }
+router.get('/career-paths', async (req, res) => {
+  try
+  {
+    const user_id = await getUserIdFromRequest(req); // authenticated user
+  
+    const sql = `
+      SELECT 
+        id,
+        title,
+        description,
+        image_url,
+        created_at,
+        updated_at
+      FROM career_paths
+      WHERE user_id = ?
+      ORDER BY id DESC
+    `;
+  
+    const [results] = await db.query(sql, [user_id]);
 
     res.json(results);
-  });
+  }
+  catch(err)
+  {
+    console.error('❌ Auth error:', err.message);
+    res.status(401).json({ message: err.message });
+  }
 });
 
 // GET single career path by id
