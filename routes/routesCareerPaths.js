@@ -3,52 +3,60 @@ const router = express.Router();
 const db = require('../config/db');
 const { getUserIdFromRequest } = require('../functions/authUser');
 
-router.post('/career-paths', (req, res) => {
-  const { title, description, image_url } = req.body;
+router.post('/career-paths', async (req, res) => {
+  try {
+    const { title, description, image_url } = req.body;
 
-  // TEMP: no auth yet, using fixed user_id
-  const user_id = 1;
-
-  if (!title) {
-    return res.status(400).json({ message: 'Title is required' });
-  }
-
-  // GMT+3 timestamp
-  const now = new Date();
-  const gmtPlus3 = new Date(now.getTime() + 3 * 60 * 60 * 1000);
-  const created_at = gmtPlus3
-    .toISOString()
-    .replace('T', ' ')
-    .split('.')[0];
-
-  const sql = `
-    INSERT INTO career_paths (user_id, title, description, image_url, created_at)
-    VALUES (?, ?, ?, ?, ?)
-  `;
-
-  const values = [
-    user_id,
-    title,
-    description || null,
-    image_url || null,
-    created_at,
-  ];
-
-  db.query(sql, values, (err, result) => {
-    if (err) {
-      console.error('❌ Career path insert error:', err.message);
-      return res.status(500).json({ message: 'Failed to create career path' });
+    if (!title || title.trim().length === 0) {
+      return res.status(400).json({ message: 'Title is required' });
     }
 
-    res.status(201).json({
-      id: result.insertId,
-      title,
-      description,
-      image_url,
+    const user_id = await getUserIdFromRequest(req);
+
+    // Use UTC +3 safely
+    const created_at = new Date(Date.now() + 3 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 19)
+      .replace('T', ' ');
+
+    const sql = `
+      INSERT INTO career_paths
+        (user_id, title, description, image_url, created_at)
+      VALUES (?, ?, ?, ?, ?)
+    `;
+
+    const [result] = await db.query(sql, [
+      user_id,
+      title.trim(),
+      description || null,
+      image_url || null,
       created_at,
+    ]);
+
+    return res.status(201).json({
+      success: true,
+      data: {
+        id: result.insertId,
+        user_id,
+        title,
+        description,
+        image_url,
+        created_at,
+      },
     });
-  });
+  } catch (err) {
+    console.error('❌ Create career path error:', err.message);
+
+    if (err.message === 'Unauthenticated') {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    return res.status(500).json({
+      message: 'Failed to create career path',
+    });
+  }
 });
+
 
 // GET all career paths
 router.get('/career-paths', async (req, res) => {
