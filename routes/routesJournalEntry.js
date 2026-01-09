@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
+const { getUserIdFromRequest } = require('../functions/authUser');
 
 /* ======================================================
    POST /api/journal-entries
@@ -54,32 +55,33 @@ router.post('/journal-entries/', (req, res) => {
 /* ======================================================
    GET /api/journal-entries?career_path_id=1
 ====================================================== */
-router.get('/journal-entries/', (req, res) => {
-  const user_id = 1; // TEMP: no auth
-  const { career_path_id } = req.query;
+router.get('/journal-entries', async (req, res) => {
+  try {
+    const user_id = await getUserIdFromRequest(req);
+    const { career_path_id } = req.query;
 
-  if (!career_path_id) {
-    return res.status(400).json({
-      message: 'career_path_id query param is required',
-    });
-  }
-
-  const sql = `
-    SELECT id, career_path_id, entry_date, created_at, updated_at
-    FROM journal_entries
-    WHERE user_id = ? AND career_path_id = ?
-    ORDER BY entry_date DESC
-  `;
-
-  db.query(sql, [user_id, career_path_id], (err, results) => {
-    if (err) {
-      console.error('❌ Fetch journal entries error:', err.message);
-      return res.status(500).json({ message: 'Failed to fetch journal entries' });
+    if (!career_path_id) {
+      return res.status(400).json({
+        message: 'career_path_id query param is required',
+      });
     }
 
-    res.json(results);
-  });
+    const sql = `
+      SELECT id, career_path_id, entry_date, created_at, updated_at
+      FROM journal_entries
+      WHERE user_id = ? AND career_path_id = ?
+      ORDER BY entry_date DESC
+    `;
+
+    const [rows] = await db.query(sql, [user_id, career_path_id]);
+
+    return res.json(rows); // ✅ ONLY data
+  } catch (err) {
+    console.error('❌ Journal entries error:', err.message);
+    return res.status(401).json({ message: err.message });
+  }
 });
+
 
 /* ======================================================
    GET /api/journal-entries/:id
