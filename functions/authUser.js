@@ -1,8 +1,9 @@
-const { getAuth } = require('@clerk/express');
+
 const db = require('../config/db');
 
 async function getUserIdFromRequest(req) {
-  const { userId: clerkUserId } = getAuth(req);
+  // requireAuth already guaranteed auth
+  const clerkUserId = req.auth?.userId;
 
   if (!clerkUserId) {
     throw new Error('Unauthenticated');
@@ -17,8 +18,9 @@ async function getUserIdFromRequest(req) {
     throw new Error('User not found in database');
   }
 
-  return rows[0].id; // ✅ returns 1 in your case
+  return rows[0].id;
 }
+
 
 
 module.exports = { getUserIdFromRequest };

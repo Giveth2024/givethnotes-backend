@@ -5,13 +5,14 @@ const { getUserIdFromRequest } = require('../functions/authUser');
 
 router.post('/career-paths', async (req, res) => {
   try {
+    const user_id = await getUserIdFromRequest(req);
+    
     const { title, description, image_url } = req.body;
 
     if (!title || title.trim().length === 0) {
       return res.status(400).json({ message: 'Title is required' });
     }
 
-    const user_id = await getUserIdFromRequest(req);
 
     // Use UTC +3 safely
     const created_at = new Date(Date.now() + 3 * 60 * 60 * 1000)
