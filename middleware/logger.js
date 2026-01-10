@@ -1,6 +1,14 @@
 const db = require('../config/db');
+const { runDailyJournalJobIfNeeded } = require('../functions/runDailyJournalJob');
 
-const logger = (req, res, next) => {
+const logger = async (req, res, next) => {
+
+  try {
+    await runDailyJournalJobIfNeeded();
+  } catch (err) {
+    console.error('Daily job failed:', err.message);
+  }
+
   const now = new Date();
 
   // GMT+3 time
