@@ -2,62 +2,89 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
 const { logEntryActivities } = require('../functions/LogActivity');
+const { getUserIdFromRequest } = require('../functions/authUser');
 
-const ALLOWED_TYPES = [
-  'heading',
-  'notes',
-  'points',
-  'attachment',
-  'reference',
-];
 
 /* ======================================================
    POST /api/entry-blocks
 ====================================================== */
-router.post('/entry-blocks', (req, res) => {
-  const { entry_id, type, position, content } = req.body;
+router.post('/entry-blocks', async (req, res) => {
+  try {
+    const user_id = await getUserIdFromRequest(req); // authenticated user
+    const { career_path_id, content } = req.body;
 
-  if (!entry_id || !type || !position || !content) {
-    return res.status(400).json({ message: 'Missing required fields' });
-  }
-
-  if (!ALLOWED_TYPES.includes(type)) {
-    return res.status(400).json({ message: 'Invalid block type' });
-  }
-
-  // GMT+3 timestamp
-  const now = new Date();
-  const gmtPlus3 = new Date(now.getTime() + 3 * 60 * 60 * 1000);
-  const created_at = gmtPlus3.toISOString().replace('T', ' ').split('.')[0];
-
-  const sql = `
-    INSERT INTO entry_blocks
-      (entry_id, type, position, content, created_at)
-    VALUES (?, ?, ?, ?, ?)
-  `;
-
-  db.query(
-    sql,
-    [entry_id, type, position, JSON.stringify(content), created_at],
-    (err, result) => {
-      if (err) {
-        console.error('❌ Create entry block error:', err.message);
-        return res.status(500).json({ message: 'Failed to create entry block' });
-      }
-
-      // PLACE HERE:
-      logEntryActivities(entry_id, created_at);
-
-      res.status(201).json({
-        id: result.insertId,
-        entry_id,
-        type,
-        position,
-        content,
-        created_at,
-      });
+    if (!career_path_id || !content) {
+      return res.status(400).json({ message: 'Missing required fields' });
     }
+
+    console.log('Creating entry block for career_path_id:', career_path_id);
+
+    // GMT+3 timestamp
+    const now = new Date();
+    const gmtPlus3 = new Date(now.getTime() + 3 * 60 * 60 * 1000);
+    const created_at = gmtPlus3.toISOString().replace('T', ' ').split('.')[0];
+
+  // Assume you already have: career_path_id, user_id, content, created_at
+  // Goal: get latest journal entry ID for career_path_id & user_id
+
+  const [rows] = await db.query(
+    `
+    SELECT id
+    FROM journal_entries
+    WHERE career_path_id = ? AND user_id = ?
+    ORDER BY entry_date DESC, created_at DESC
+    LIMIT 1
+    `,
+    [career_path_id, user_id]
   );
+
+  if (rows.length === 0) {
+    throw new Error('No journal entry found for this career path and user.');
+  }
+
+  // Latest journal entry ID
+  const journal_id = rows[0].id;
+
+  // Now you can insert into entry_blocks
+  const [result] = await db.query(
+    `
+    INSERT INTO entry_blocks (entry_id, career_path_id, user_id, content, created_at)
+    VALUES (?, ?, ?, ?, ?)
+    `,
+    [journal_id, career_path_id, user_id, JSON.stringify(content), created_at]
+  );
+
+  console.log('✅ Block inserted with journal_id:', journal_id);
+
+
+    // Check if insert actually happened
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'No journal entry found for this career path' });
+    }
+
+    // Send response immediately
+    res.status(201).json({
+      id: result.insertId,
+      career_path_id,
+      user_id,
+      content,
+      created_at,
+    });
+
+    // Log activities asynchronously (fire-and-forget)
+    // Fire-and-forget logging
+    try {
+      console.log('Logging entry activity asynchronously', journal_id, created_at);
+      logEntryActivities(journal_id, created_at);
+    } catch (err) {
+      console.error('❌ Log activity failed:', err.message);
+    }
+
+
+  } catch (err) {
+    console.error('❌ Create entry block error:', err.message);
+    res.status(500).json({ message: 'Failed to create entry block' });
+  }
 });
 
 /* ======================================================
