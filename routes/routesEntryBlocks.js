@@ -90,38 +90,67 @@ router.post('/entry-blocks', async (req, res) => {
 /* ======================================================
    GET /api/entry-blocks?entry_id=1
 ====================================================== */
-router.get('/entry-blocks', (req, res) => {
-  const { entry_id } = req.query;
+router.get('/entry-blocks', async (req, res) => {
+  try {
+    const user_id = await getUserIdFromRequest(req); // authenticated user
+    const { career_path_id } = req.query;
 
-  console.log('Fetching blocks for entry_id:', entry_id);
-  if (!entry_id) {
-    return res.status(400).json({ message: 'entry_id is required' });
-  }
+    console.log('Fetching blocks for career_path_id:', career_path_id);
 
-  const sql = `
-    SELECT id, entry_id, type, position, content, created_at, updated_at
-    FROM entry_blocks
-    WHERE entry_id = ?
-    ORDER BY position ASC
-  `;
-
-  db.query(sql, [entry_id], (err, results) => {
-    if (err) {
-      console.error('❌ Fetch entry blocks error:', err.message);
-      return res.status(500).json({ message: 'Failed to fetch entry blocks' });
+    if (!career_path_id) {
+      return res.status(400).json({ message: 'career_path_id is required' });
     }
 
-    // Parse JSON content
+    const sql = `
+      SELECT id, career_path_id, content, created_at, updated_at
+      FROM entry_blocks
+      WHERE career_path_id = ? AND user_id = ?
+      ORDER BY created_at ASC
+    `;
+
+    const [results] = await db.query(sql, [career_path_id, user_id]);
+
     const blocks = results.map((row) => ({
       ...row,
-      content: row.content,
+      content: row.content, // already JSON if mysql2 is used
     }));
 
-    console.log(`✅ Fetched ${blocks.length} blocks for entry_id ${entry_id}`);
+    console.log(`✅ Fetched ${blocks.length} blocks for career_path_id ${career_path_id}`);
 
     res.json(blocks);
-  });
+  } catch (err) {
+    console.error('❌ Fetch entry blocks error:', err.message);
+    res.status(500).json({ message: 'Failed to fetch entry blocks' });
+  }
 });
+
+
+// GET a single entry block by id
+router.get('/get-entry-block', async (req, res) => {
+  try {
+    const userId = await getUserIdFromRequest(req);
+
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+    const entryBlockId = req.query.entry_block_id;
+    if (!entryBlockId) return res.status(400).json({ message: 'entry_block_id is required' });
+
+    const [rows] = await db.query(
+      'SELECT * FROM entry_blocks WHERE id = ? AND user_id = ?',
+      [entryBlockId, userId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Entry block not found' });
+    }
+
+    return res.json(rows[0]); // return the full row, including content array
+  } catch (err) {
+    console.error('Error fetching entry block:', err);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
 
 /* ======================================================
    PUT /api/entry-blocks/:id
@@ -172,50 +201,48 @@ router.put('/entry-blocks', (req, res) => {
 
 
 /* ======================================================
-   DELETE /api/entry-blocks/:id
+   DELETE /api/entry-blocks?id=35
+   (Only deletes blocks created TODAY)
 ====================================================== */
-router.delete('/entry-blocks', (req, res) => {
-  const { entry_id, position } = req.body;
+router.delete('/entry-blocks', async (req, res) => {
+  try {
+    const user_id = await getUserIdFromRequest(req); // authenticated user
+    const { id } = req.query;
 
-  if (!entry_id || !position) {
-    return res.status(400).json({ message: 'entry_id and position are required' });
-  }
-
-  // 1️⃣ Delete the block
-  const deleteSql = `
-    DELETE FROM entry_blocks
-    WHERE entry_id = ? AND position = ?
-  `;
-
-  db.query(deleteSql, [entry_id, position], (err, result) => {
-    if (err) {
-      console.error('❌ Delete block error:', err.message);
-      return res.status(500).json({ message: 'Failed to delete block' });
+    if (!id) {
+      return res.status(400).json({ message: 'id is required' });
     }
 
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: 'Block not found at that position' });
-    }
+    console.log('🗑️ Deleting entry block id:', id);
 
-    // 2️⃣ Shift remaining blocks UP
-    const reorderSql = `
-      UPDATE entry_blocks
-      SET position = position - 1
-      WHERE entry_id = ? AND position > ?
+    const deleteSql = `
+      DELETE FROM entry_blocks
+      WHERE id = ?
+        AND user_id = ?
+        AND DATE(created_at) = CURDATE()
     `;
 
-    db.query(reorderSql, [entry_id, position], (err) => {
-      if (err) {
-        console.error('❌ Reorder error:', err.message);
-      }
+    const [results] = await db.query(deleteSql, [id, user_id]);
 
-    // PLACE HERE:
-    logEntryActivities(entry_id, created_at);
+    if (results.affectedRows === 0) {
+      return res.status(404).json({
+        message: 'Block not found or not created today',
+      });
+    }
 
-      res.json({ message: 'Block deleted and positions updated' });
+    console.log('✅ Block deleted:', id);
+
+    res.json({
+      message: 'Block deleted successfully (today only)',
+      deleted_id: id,
     });
-  });
+  } catch (err) {
+    console.error('❌ Delete entry block error:', err.message);
+    res.status(500).json({ message: 'Failed to delete entry block' });
+  }
 });
+
+
 
 
 module.exports = router;
